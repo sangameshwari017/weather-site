@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Weather</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0b1220; --card:#111a2e; --muted:#7b88a8; --text:#eaf0ff; --accent:#7c9dff; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:radial-gradient(1200px 600px at 80% -10%, #1b2a4a 0%, #0b1220 60%), var(--bg); color:var(--text);}
+    .wrap{max-width:780px;margin:48px auto;padding:0 16px}
+    .title{font-size:28px;font-weight:700;letter-spacing:.2px;margin:0 0 18px}
+    .subtitle{color:var(--muted);margin:0 0 24px}
+    .search{display:flex;gap:12px;align-items:center;margin:0 0 18px}
+    .input{
+      flex:1;padding:14px 16px;border-radius:14px;border:1px solid #26365a;background:#0f1830;color:var(--text);
+      outline:none;transition:.2s;box-shadow:inset 0 0 0 9999px rgba(255,255,255,0.02);
+    }
+    .input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,157,255,.15)}
+    .btn{
+      padding:14px 18px;border-radius:14px;border:1px solid #2a3c66;background:linear-gradient(180deg,#1c2b50,#142243);
+      color:var(--text);cursor:pointer;font-weight:600;transition:.2s;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .row{display:grid;grid-template-columns:1fr;gap:16px}
+    @media (min-width:720px){ .row{grid-template-columns:1.2fr .8fr} }
+    .card{background:var(--card);border:1px solid #1b2b4d;border-radius:20px;padding:18px;box-shadow:0 8px 30px rgba(7,12,24,.4)}
+    .muted{color:var(--muted)}
+    .big{font-size:46px;font-weight:800;line-height:1.1;margin:6px 0}
+    .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}
+    .chip{padding:10px 12px;border-radius:12px;background:#0f1830;border:1px solid #223256}
+    .footer{margin-top:18px;font-size:12px;color:#98a6c7}
+    .err{color:#ffb4c4}
+    #voiceBtn {
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid #2a3c66;
+  background: linear-gradient(180deg, #1c2b50, #142243);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+
+}
+
+#voiceBtn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px #7c9dff;
+}
+#cityInput {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #26365a;
+  background: #0f1830;
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+  transition: 0.3s ease;
+  box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0.02);
+}
+
+#cityInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 8px #7c9dff, 0 0 0 3px rgba(124, 157, 255, 0.2);
+}
+.weather-emoji {
+  font-size: 64px;
+  display: inline-block;
+  transition: transform 0.3s ease, filter 0.3s ease;
+  cursor: pointer;
+}
+
+.weather-emoji:hover {
+  transform: scale(1.2) rotate(10deg);
+  filter: drop-shadow(0 0 10px #7c9dff);
+}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">🌤️ Simple Weather</h1>
+    <p class="subtitle">Enter the City Name:<em>Chennai</em>, <em>Madurai</em>, <em>Coimbatore</em>.</p>
+
+    <div class="search">
+      <input type="text" id="cityInput" placeholder="Type city name..." />
+      <button id="go" class="btn">Get Weather</button>
+      <button id="myloc" class="btn" title="Use my location">📍</button>
+      <button id="voiceBtn">🎤 Speak</button>
+      <p id="voiceStatus">Click and say a city name...</p>
+      
+
+    </div>
+    <p id="msg" class="muted"></p>
+
+    <div class="row">
+      <div class="card" id="result">
+        <div class="muted">No data yet. Search a city 👆</div>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+  const cityInput = document.getElementById("cityInput");
+  const goBtn = document.getElementById("go");
+  const myLocBtn = document.getElementById("myloc");
+  const voiceBtn = document.getElementById("voiceBtn");
+  const voiceStatus = document.getElementById("voiceStatus");
+  const msg = document.getElementById('msg');
+  const result = document.getElementById('result');
+
+  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  recognition.lang = "en-IN";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  voiceBtn.addEventListener("click", () => {
+    recognition.start();
+    voiceStatus.textContent = "🎙️ Listening...";
+  });
+
+  recognition.onresult = (event) => {
+    const citySpoken = event.results[0][0].transcript;
+    voiceStatus.textContent = `You said: ${citySpoken}`;
+    cityInput.value = citySpoken;
+    byCity(citySpoken);
+  };
+
+  recognition.onerror = (event) => {
+    voiceStatus.textContent = `Error: ${event.error}`;
+  };
+
+  const WMO = {
+    0:["Clear sky","☀️"], 1:["Mainly clear","🌤️"], 2:["Partly cloudy","⛅"], 3:["Overcast","☁️"],
+    45:["Fog","🌫️"], 48:["Depositing rime fog","🌫️"],
+    51:["Light drizzle","🌦️"], 53:["Moderate drizzle","🌦️"], 55:["Dense drizzle","🌧️"],
+    61:["Light rain","🌦️"], 63:["Moderate rain","🌧️"], 65:["Heavy rain","🌧️"],
+    66:["Freezing rain (light)","🌧️"], 67:["Freezing rain (heavy)","🌧️"],
+    71:["Light snow","🌨️"], 73:["Moderate snow","❄️"], 75:["Heavy snow","❄️"],
+    77:["Snow grains","🌨️"],
+    80:["Rain showers (slight)","🌦️"], 81:["Rain showers (moderate)","🌧️"], 82:["Violent rain showers","⛈️"],
+    85:["Snow showers (slight)","🌨️"], 86:["Snow showers (heavy)","❄️"],
+    95:["Thunderstorm","⛈️"], 96:["Thunderstorm w/ hail","⛈️"], 99:["Thunderstorm w/ heavy hail","⛈️"]
+  };
+
+  function weatherText(code){ return WMO[code] || ["Unknown","🌡️"]; }
+
+  function showMessage(text, isError=false){
+    msg.textContent = text;
+    msg.className = isError ? "muted err" : "muted";
+  }
+
+  function renderCard(payload){
+    const { name, country, temperature, windspeed, winddirection, weathercode, time, is_day } = payload;
+    const [desc, emoji] = weatherText(weathercode);
+  
+
+    
+  result.innerHTML = `
+  <div class="muted">Weather for</div>
+  <div class="big"><span class="weather-emoji">${emoji}</span> ${name}${country ? ', '+country : ''}</div>
+  <div style="margin-top:6px">
+    <span style="font-size:36px;font-weight:800">${Math.round(temperature)}°C</span>
+    <span class="muted"> | ${desc} ${is_day ? "· Day" : "· Night"}</span>
+  </div>
+  <div class="meta">
+    <div class="chip"><strong>Wind</strong><br>${Math.round(windspeed)} km/h</div>
+    <div class="chip"><strong>Direction</strong><br>${Math.round(winddirection)}°</div>
+    <div class="chip"><strong>Updated</strong><br>${new Date(time).toLocaleString()}</div>
+    <div class="chip"><strong>Source</strong><br>Open-Meteo</div>
+  </div>
+`;
+}
+  async function byCity(city){
+    if(!city || city.trim().length < 2){
+      showMessage("Type a valid city name.", true); return;
+    }
+    showMessage("Finding location…");
+    const gUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
+    const gRes = await fetch(gUrl);
+    if(!gRes.ok){ showMessage("Geocoding failed. Try again.", true); return; }
+    const gData = await gRes.json();
+    if(!gData.results || gData.results.length === 0){
+      showMessage("City not found. Check spelling.", true); return;
+    }
+    const place = gData.results[0];
+    await byCoords(place.latitude, place.longitude, place.name, place.country_code);
+  }
+
+  async function byCoords(lat, lon, name="Your location", country=""){
+    showMessage("Fetching weather…");
+    const wUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`;
+    const wRes = await fetch(wUrl);
+    if(!wRes.ok){ showMessage("Weather fetch failed. Try again.", true); return; }
+    const wData = await wRes.json();
+    const cw = wData.current_weather;
+    if(!cw){ showMessage("No current weather data.", true); return; }
+    renderCard({
+      name, country,
+      temperature: cw.temperature,
+      windspeed: cw.windspeed,
+      winddirection: cw.winddirection,
+      weathercode: cw.weathercode,
+      time: cw.time,
+      is_day: cw.is_day === 1
+    });
+    showMessage("");
+    localStorage.setItem("last_city", name);
+  }
+
+  goBtn.addEventListener('click', () => byCity(cityInput.value));
+  cityInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') byCity(cityInput.value); });
+
+  myLocBtn.addEventListener('click', () => {
+    if(!navigator.geolocation){ showMessage("Geolocation not supported.", true); return; }
+    navigator.geolocation.getCurrentPosition(
+      async (pos)=>{
+        const { latitude, longitude } = pos.coords;
+        try{
+          const r = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&language=en&format=json`);
+          const j = await r.json();
+          const place = (j && j.results && j.results[0]) || {};
+          await byCoords(latitude, longitude, place.name || "Your location", place.country_code || "");
+        }catch{
+          await byCoords(latitude, longitude);
+        }
+      },
+      (err)=> showMessage("Location permission denied.", true),
+      { enableHighAccuracy:true, timeout:10000 }
+    );
+  });
+
+  window.addEventListener('DOMContentLoaded', ()=>{
+    const last = localStorage.getItem("last_city");
+    if(last){ cityInput.value = last; byCity(last); }
+  });
+</script>
+</body>
+</html>
